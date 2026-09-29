@@ -39,7 +39,7 @@ def verify_with_gemini(image_input):
             print(f"[!] File not found: {image_input}")
             return "UNKNOWN", "Image file not found."
 
-        pil_img = Image.open(image_input)
+        pil_img = Image.open(image_input).convert("RGB")
 
     # -----------------------------------------------------
     # Handle OpenCV image
@@ -61,29 +61,25 @@ def verify_with_gemini(image_input):
     # =====================================================
 
     prompt = """
-You are an automated traffic violation audit system.
+Analyze this two-wheeler traffic image.
 
-Analyze the provided vehicle image.
+Return exactly two lines:
 
-1. Extract the license/registration plate number.
-   Output only standard alphanumeric plate characters.
-   Example: TS09EA1234.
-   If the plate is unreadable or missing, output UNKNOWN.
+PLATE: <license plate number or UNKNOWN>
+REASON: <brief helmet observation>
 
-2. State in one brief sentence whether the riders
-   are wearing helmets.
-
-Format your response exactly as:
-
-PLATE: <plate_number>
-REASON: <one sentence explanation>
+Rules:
+- Use only alphanumeric characters for the plate.
+- If the plate cannot be read clearly, use UNKNOWN.
+- State whether the visible motorcycle riders are wearing helmets.
+- Do not add any extra text.
 """
 
     # =====================================================
     # GEMINI API REQUEST WITH RETRY
     # =====================================================
 
-    max_retries = 3
+    max_retries = 5
 
     for attempt in range(1, max_retries + 1):
 
@@ -97,7 +93,9 @@ REASON: <one sentence explanation>
                 ]
             )
 
-            text = response.text.strip()
+            text = (response.text or "").strip()
+
+            print(f"[+] Gemini response received on attempt {attempt}")
 
             # =================================================
             # PARSE GEMINI RESPONSE
@@ -139,12 +137,15 @@ REASON: <one sentence explanation>
 
                 if attempt < max_retries:
 
+                    wait_time = attempt * 5
+
                     print(
                         f"[!] Gemini service temporarily unavailable. "
-                        f"Retrying ({attempt}/{max_retries})..."
+                        f"Retrying ({attempt}/{max_retries}) "
+                        f"in {wait_time}s..."
                     )
 
-                    time.sleep(5)
+                    time.sleep(wait_time)
 
                 else:
 
